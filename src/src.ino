@@ -1,7 +1,7 @@
 #define DEBUG true
 
 #define WIFI_CHECK_DELAY_MILLIS 1000
-#define LED_DELAY_TIME_MICROS 10
+#define LED_DELAY_TIME_MICROS 1000
 
 #define SELECT_0 6
 #define SELECT_1 7
@@ -23,6 +23,15 @@ bool** select_arr_cache;
 // the LEDs that should be turned on.
 byte* enabled_leds;
 
+void printSelectArray(const bool* select_arr, int select_arr_size) {
+  Serial.print("[ ");
+  for(int i = 0; i < select_arr_size; i++) {
+    Serial.print(select_arr[select_arr_size - 1 - i]);
+    Serial.print(" ");
+  }
+  Serial.println(" ]");
+}
+
 /*
  * Update LEDs given boolean array.
  */
@@ -40,11 +49,13 @@ void updateLeds(const bool* select_arr) {
  * Convert integer into boolean array representation.
  * i.e. 0b...0101 -> [..., 0, 1, 0, 1].
  */
-void convertLedIndexToSelectArray(byte led_index, bool* select_arr, int select_arr_size) {  
-  for (int i = 0; i < select_arr_size; i++) {
+bool* createSelectArrayFromLedIndex(byte led_index, int arr_size) {  
+  bool* select_arr = (bool*) malloc(arr_size * sizeof(bool));
+  for (int i = 0; i < arr_size; i++) {
     // ith element is ith bit in orig number.
     select_arr[i] = (led_index >> i) & 1;
   }
+  return select_arr;
 }
 
 /**
@@ -53,8 +64,7 @@ void convertLedIndexToSelectArray(byte led_index, bool* select_arr, int select_a
 bool** createSelectArrayCache(int cache_size, int arr_size) {
   bool** select_arr_cache = (bool**) malloc(cache_size * sizeof(bool *));
   for(int i = 0; i < cache_size; i++) {
-    *select_arr_cache = (bool*) malloc(arr_size * sizeof(bool));
-    convertLedIndexToSelectArray(i, *select_arr_cache, arr_size);
+    select_arr_cache[i] = createSelectArrayFromLedIndex(i, arr_size);
   }
   return select_arr_cache;
 }
@@ -73,7 +83,8 @@ void updateEnabledLeds(byte* enabled_leds) {
  * Creates an array to be used to save which leds should be enabled.
  */
 byte* createEnabledLeds(int enabled_leds_size) {
-  enabled_leds = (byte*) malloc(enabled_leds_size * sizeof(byte));
+  byte* enabled_leds = (byte*) malloc(enabled_leds_size * sizeof(byte));
+  return enabled_leds;
 }
 
 
@@ -95,7 +106,7 @@ void setup() {
 
 void loop() {
   unsigned long start_time = millis();
-  
+
   updateEnabledLeds(enabled_leds);
 
   // only check the MTA API every so often.
@@ -103,7 +114,7 @@ void loop() {
     // cycle lit LEDs to give the illusion we're actually lighting multiple at once.
     for (int i = 0; i < MAX_NUM_ENABLED_LEDS; i++) {
       updateLeds(select_arr_cache[enabled_leds[i]]);
-      delayMicroseconds(LED_DELAY_TIME_MILLIS);
+      delayMicroseconds(LED_DELAY_TIME_MICROS);
     }
   }
 }
